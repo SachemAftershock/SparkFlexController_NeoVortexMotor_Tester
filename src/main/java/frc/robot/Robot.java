@@ -52,7 +52,7 @@ public class Robot extends TimedRobot {
   private double m_bootOffsetFromZero = 0;
 
   private final double motorVelocityRpmMax = 6784;
-  private final double motorOutputMax = 0.1;  // Set to 1.0 on real robot, lower like 0.1 for benchtop motor testing to avoid brownouts of AC/DC power supplies.
+  private final double motorOutputMax = 0.2;  // Set to 1.0 on real robot, lower like 0.1 for benchtop motor testing to avoid brownouts of AC/DC power supplies.
 
   private double sign = 1;
 
@@ -129,14 +129,14 @@ public class Robot extends TimedRobot {
 
     
     m_bootOffsetFromZero = m_SparkFlex8.getAbsoluteEncoder().getPosition(); // m_SparkFlex8.getAbsoluteEncoder().getPosition();
-    //m_ClosedLoopController.setReference(m_bootOffsetFromZero, ControlType.kMAXMotionPositionControl);  // in units of rotations
+    m_ClosedLoopController.setReference(m_bootOffsetFromZero, ControlType.kMAXMotionPositionControl);  // in units of rotations
     m_TargetPosition = 0;
     // m_ClosedLoopController.setReference(adjustDesiredTarget(m_TargetPosition), ControlType.kMAXMotionPositionControl);  // in units of rotations
-    // System.out.println(
-    //     "Initial:: " +
-    //     " Target: " + String.format("%5.3f ",m_TargetPosition) + 
-    //     " Adjusted Target: " + String.format("%5.3f ",adjustDesiredTarget(m_TargetPosition)) + 
-    //     " Current: " + String.format("%5.3f ",m_SparkFlex8.getAbsoluteEncoder().getPosition()));
+    System.out.println(
+        "Initial:: " +
+        " Target: " + String.format("%5.3f ",m_TargetPosition) + 
+        " Adjusted Target: " + String.format("%5.3f ",adjustDesiredTarget(m_TargetPosition)) + 
+        " Current: " + String.format("%5.3f ",m_SparkFlex8.getAbsoluteEncoder().getPosition()));
     m_HeartbeatCounter = 0;
   }
 
@@ -171,7 +171,7 @@ public class Robot extends TimedRobot {
     
     final double kIncerment = kPositionConversionFactor / 3;
     if (m_HeartbeatCounter++ % kHearbeatsPerSecond == 0) {   // every one second
-      if (m_SecondCounter++ % 6 == 0) {  // every few seconds
+      if (m_SecondCounter++ % 4 == 0) {  // every few seconds
 
         if (!firstTime) {
 
