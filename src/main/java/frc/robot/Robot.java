@@ -43,7 +43,7 @@ public class Robot extends TimedRobot {
   private int m_SecondCounter = 0;
   private final int kHearbeatsPerSecond = 50;
   
-  private final double kGearRatio = 3; // 80;
+  private final double kGearRatio = 1; //48; // 3; // 80;
   // Uncomment each to witness physical behavior change.
   //private final double kPositionConversionFactor = 1; // 1 Revolultion
   //private final double kPositionConversionFactor = 3; // 3:1 gearbox, thus 1 motor revolution = 1/3 encoder shaft revolution
@@ -78,18 +78,19 @@ public class Robot extends TimedRobot {
     m_SparkFlexConfig.idleMode(IdleMode.kBrake); //IdleMode.kCoast);
     m_SparkFlexConfig.absoluteEncoder.positionConversionFactor(kPositionConversionFactor); // is a factor multiplied against absolute encoder's [0..1) when set to 1 will be returned by m_SparkFlex8.getAbsoluteEncoder().getPosition().  Use 360 to get degrees from abs zero.
     m_SparkFlexConfig.absoluteEncoder.velocityConversionFactor(kVelocityConversionFactor); 
-    m_SparkFlexConfig.absoluteEncoder.zeroOffset(0.5307451);  // Get from Rev Hardware Client > Hardware > Absolute Encoder > twist motor to desired "zero" position > click Zero Offset Button > take this value from Zero Offset field which should be between [0..1).
+    m_SparkFlexConfig.absoluteEncoder.zeroOffset(0); //0.2116631); //0.2985075);//0.2877348);  // Get from Rev Hardware Client > Hardware > Absolute Encoder > twist motor to desired "zero" position > click Zero Offset Button > take this value from Zero Offset field which should be between [0..1).
+    // zero cmd goes to 14.53
     m_SparkFlexConfig.absoluteEncoder.zeroCentered(false);
     m_SparkFlexConfig.signals.primaryEncoderPositionPeriodMs(5);
     m_SparkFlexConfig.signals.primaryEncoderVelocityPeriodMs(5);
     m_SparkFlexConfig.closedLoop.pidf(0.3,0,1,0);  
     m_SparkFlexConfig.closedLoop.velocityFF(1/565);
     m_SparkFlexConfig.closedLoop.outputRange(-motorOutputMax,motorOutputMax);
-    m_SparkFlexConfig.closedLoop.positionWrappingEnabled(true);
+    m_SparkFlexConfig.closedLoop.positionWrappingEnabled(false);
     m_SparkFlexConfig.closedLoop.feedbackSensor(FeedbackSensor.kAbsoluteEncoder);
     m_SparkFlexConfig.closedLoop.maxMotion.maxVelocity(motorVelocityRpmMax);  // NeoVortex Max RPM = 6784
     m_SparkFlexConfig.closedLoop.maxMotion.maxAcceleration(motorVelocityRpmMax/4);  // RPM/sec
-    m_SparkFlexConfig.closedLoop.maxMotion.allowedClosedLoopError(kPositionConversionFactor*0.05); //0.007); // This is the epsilon.  Empirically find what results in precise landings, yet doesn't get stuck in oscillation due to too tight epsilon. If too small, may spin forever.
+    m_SparkFlexConfig.closedLoop.maxMotion.allowedClosedLoopError(0.05); //kPositionConversionFactor*0.05); //0.007); // This is the epsilon.  Empirically find what results in precise landings, yet doesn't get stuck in oscillation due to too tight epsilon. If too small, will irrationally spin forever.
     //m_SparkFlexConfig.absoluteEncoder.VoltageCompensationEnabled(true);  // don't seem to exist, can't find it.
     m_SparkFlex8.configure(m_SparkFlexConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
 
@@ -140,30 +141,7 @@ public class Robot extends TimedRobot {
     m_HeartbeatCounter = 0;
   }
 
-  private double adjustDesiredTarget(double desiredTarget) {
-    return desiredTarget-m_bootOffsetFromZero;
-  //   double adjusted = desiredTarget-m_bootOffsetFromZero;
-  //   return (adjusted < 0) ? kPositionConversionFactor-adjusted : adjusted;
-  }
-
-  private void resetAbsoluteOverRevs(){
-    m_bootOffsetFromZero = m_SparkFlex8.getAbsoluteEncoder().getPosition();
-    m_TargetPosition = 0;
-  }
-
-  public void setTargetPositionCommandInDegrees(double targetPositionCommandInDegrees){
-    m_TargetPosition = (targetPositionCommandInDegrees+m_bootOffsetFromZero) / 360 * kPositionConversionFactor;
-  }
-
-  public double getTargetPositionCommandInDegrees() {
-    return (m_TargetPosition-m_bootOffsetFromZero) / kPositionConversionFactor * 360;
-  }
-
-  public double getTargetPositionMeasureInDegrees() {
-    return (m_SparkFlex8.getAbsoluteEncoder().getPosition()) / kPositionConversionFactor * 360;
-  }
-
-  boolean firstTime = true;
+   boolean firstTime = true;
 
   /** This function is called periodically during autonomous. */
   @Override
@@ -243,27 +221,57 @@ public class Robot extends TimedRobot {
   @Override
   public void testInit() {
     m_HeartbeatCounter = 0;
-    //m_ClosedLoopController.setReference( 0, ControlType.kMAXMotionPositionControl);
-    //m_ClosedLoopController.setReference( kPositionConversionFactor, ControlType.kMAXMotionPositionControl);
+    m_SecondCounter = 0;
+    System.out.println("Test Mode");
+ 
+ 
+    // RESTORE
+    // m_HeartbeatCounter = 0;
+    // //m_ClosedLoopController.setReference( 0, ControlType.kMAXMotionPositionControl);
+    // //m_ClosedLoopController.setReference( kPositionConversionFactor, ControlType.kMAXMotionPositionControl);  // Also proved cannot go over kPositionConversionFactor will just run forever. 
+    // //m_ClosedLoopController.setReference ( 0,ControlType.kPosition);
   }
 
   /** This function is called periodically during test mode. */
   @Override
   public void testPeriodic() {
-    if (m_HeartbeatCounter++ % kHearbeatsPerSecond == 0) {   // evert one second
-      double position = deadband(-m_XboxController.getLeftY(),0.06,2);
-      System.out.println("PositionCmd: " + String.format("%5.3f ",position));
-      m_ClosedLoopController.setReference( position*kPositionConversionFactor, ControlType.kMAXMotionPositionControl);
+    if (m_SecondCounter == 0) {  
+      m_ClosedLoopController.setReference(0, ControlType.kMAXMotionPositionControl);  // in units of rotations
+      System.out.println("Goto Zero");
+    } else if (m_SecondCounter == 5) {  
+      System.out.println("Stay Still");
+    } else if (m_SecondCounter == 10) {  
+      m_ClosedLoopController.setReference(kPositionConversionFactor/2, ControlType.kMAXMotionPositionControl);  // in units of rotations
+      System.out.println("Goto kPositionConversionFactor");
+    } else if (m_SecondCounter == 15) {  
+      m_SecondCounter = 0;
+      System.out.println("Stay Still");
+    } else {
+
     }
+    if (m_HeartbeatCounter++ % kHearbeatsPerSecond == 0) {   // every one second
+      m_SecondCounter++;
+    }
+
+    // RESTORE
+    // double position = deadband(-m_XboxController.getLeftY(),0.06,2);
+    // m_ClosedLoopController.setReference( 0*position*kPositionConversionFactor, ControlType.kPosition); // kMAXMotionPositionControl
+    // if (m_HeartbeatCounter++ % kHearbeatsPerSecond == 0) {   // evert one second
+    //   System.out.println("PositionCmd: " + String.format("%5.3f ",position) +
+    //   "AbsoluteMeasure: " + String.format("%5.3f ",m_SparkFlex8.getAbsoluteEncoder().getPosition())+
+    //   "Measure: " + String.format("%5.3f ",m_SparkFlex8.getEncoder().getPosition()));
+    // }
   }
 
   /** This function is called once when the robot is first started up. */
   @Override
-  public void simulationInit() {}
+  public void simulationInit() {
+  }
 
   /** This function is called periodically whilst in simulation. */
   @Override
-  public void simulationPeriodic() {}
+  public void simulationPeriodic() {
+  }
 
   private void printMotorAndEncoderConfiguration() {
     System.out.println("configAccessor");
@@ -300,4 +308,28 @@ public class Robot extends TimedRobot {
       return (exponentialSupressionNearZero);
     }
   }
+
+  private double adjustDesiredTarget(double desiredTarget) {
+    return desiredTarget-m_bootOffsetFromZero;
+  //   double adjusted = desiredTarget-m_bootOffsetFromZero;
+  //   return (adjusted < 0) ? kPositionConversionFactor-adjusted : adjusted;
+  }
+
+  private void resetAbsoluteOverRevs(){
+    m_bootOffsetFromZero = m_SparkFlex8.getAbsoluteEncoder().getPosition();
+    m_TargetPosition = 0;
+  }
+
+  public void setTargetPositionCommandInDegrees(double targetPositionCommandInDegrees){
+    m_TargetPosition = (targetPositionCommandInDegrees+m_bootOffsetFromZero) / 360 * kPositionConversionFactor;
+  }
+
+  public double getTargetPositionCommandInDegrees() {
+    return (m_TargetPosition-m_bootOffsetFromZero) / kPositionConversionFactor * 360;
+  }
+
+  public double getTargetPositionMeasureInDegrees() {
+    return (m_SparkFlex8.getAbsoluteEncoder().getPosition()) / kPositionConversionFactor * 360;
+  }
+
 }
